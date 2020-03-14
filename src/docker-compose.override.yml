@@ -1,0 +1,90 @@
+version: '3.7'
+
+# The default docker-compose.override file can use the "localhost" as the external name for testing web apps within the same dev machine.
+# The COURSES_EXTERNAL_DNS_NAME_OR_IP environment variable is taken, by default, from the ".env" file defined like:
+#     COURSES_EXTERNAL_DNS_NAME_OR_IP=localhost
+# but values present in the environment vars at runtime will always override those defined inside the .env file
+# An external IP or DNS name has to be used (instead localhost and the 10.0.75.1 IP) when testing the Web apps and 
+# the Xamarin apps from remote machines/devices using the same WiFi, for instance.
+
+services:
+
+    courses-api:
+        environment:
+            - ASPNETCORE_ENVIRONMENT=Development
+            - ASPNETCORE_HTTPS_PORT=8002
+            - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/server.pfx
+            - ASPNETCORE_Kestrel__Certificates__Default__Password=Pa55w0rd
+            - ASPNETCORE_URLS=https://+;http://0.0.0.0:80
+            - ConnectionString=${COURSES_AZURE_COURSES_DB:-Host=coursesdb;Database=courses;Username=app;Password=Pa55w0rd;}
+            - identityUrl=https://identity-api
+            - IdentityUrlExternal=https://${COURSES_EXTERNAL_DNS_NAME_OR_IP}:8001
+            - EventBusConnection=${COURSES_AZURE_SERVICE_BUS:-rabbitmq}
+            - EventBusUserName=${COURSES_SERVICE_BUS_USERNAME}
+            - EventBusPassword=${COURSES_SERVICE_BUS_PASSWORD}
+            - UseCustomizationData=True
+            - AzureServiceBusEnabled=False
+            - CheckUpdateTime=30000
+            - ApplicationInsights__InstrumentationKey=${INSTRUMENTATION_KEY}
+            - OrchestratorType=${ORCHESTRATOR_TYPE}
+            - UseLoadTest=${USE_LOADTEST:-False}
+            - Serilog__MinimumLevel__Override__dcs3spp.courseManagementContainers.BuildingBlocks.EventBusRabbitMQ=Verbose
+            - Serilog__MinimumLevel__Override__courses-api=Verbose
+            - PATH_BASE=/courses-api
+            - GRPC_PORT=81
+            - PORT=80
+        ports:
+            - "5102:80"
+            - "8002:443"
+            - "9102:81"
+        volumes:
+            - ./Certificates:/https
+
+    coursesdb:
+        ports:
+            - "5232:5432"                      
+        environment:
+            POSTGRES_USER: "app"
+            POSTGRES_PASSWORD: "Pa55w0rd"
+            POSTGRES_DB: "courses"
+            POSTGRES_HOST: "127.0.0.1"
+
+    identity-api:
+        environment:
+            - ASPNETCORE_ENVIRONMENT=Development
+            - ASPNETCORE_HTTPS_PORT=8001
+            - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/server.pfx
+            - ASPNETCORE_Kestrel__Certificates__Default__Password=Pa55w0rd
+            - ASPNETCORE_URLS=https://+;http://0.0.0.0:80
+            - SpaClient=http://${COURSES_EXTERNAL_DNS_NAME_OR_IP}:5104
+            - ConnectionString=${COURSES_AZURE_IDENTITY_DB:-Server=identitydb;Database=identity;Username=app;Password=Pa55w0rd;}
+            - CoursesApiClient=https://${COURSES_EXTERNAL_DNS_NAME_OR_IP}:8002
+            - UseCustomizationData=True
+            - ApplicationInsights__InstrumentationKey=${INSTRUMENTATION_KEY}
+            - OrchestratorType=${ORCHESTRATOR_TYPE}
+        ports:
+            - "5105:80"
+            - "8001:443"
+        volumes:
+            - ./Certificates:/https
+        
+    identitydb:
+        ports:
+            - "5231:5432"
+        environment:
+            POSTGRES_USER: "app"
+            POSTGRES_PASSWORD: "Pa55w0rd"
+            POSTGRES_DB: "identity"
+            POSTGRES_HOST: "127.0.0.1"
+
+    rabbitmq:
+        ports:
+        - "15672:15672"                        
+        - "5672:5672"
+    
+    seq:
+        environment:
+            - ACCEPT_EULA=Y
+        ports:
+            - "5340:80"
+

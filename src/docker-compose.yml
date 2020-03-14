@@ -1,0 +1,34 @@
+version: '3.7'
+
+services:
+  
+  coursesdb:
+    image: postgres:alpine
+
+  courses-api:
+    image: ${REGISTRY:-courses}/courses.api:${PLATFORM:-linux}-${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Services/Courses/Courses.API/Dockerfile
+    depends_on:
+      - coursesdb
+      - rabbitmq
+
+  identity-api:
+    image: ${REGISTRY:-courses}/identity.api:${PLATFORM:-linux}-${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Services/Identity/Identity.API/Dockerfile
+    depends_on:
+      - identitydb
+
+  identitydb:
+    image: postgres:alpine
+  
+  seq:
+    image: datalust/seq:latest
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"

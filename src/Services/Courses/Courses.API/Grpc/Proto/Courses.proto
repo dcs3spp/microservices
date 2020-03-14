@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option csharp_namespace = "GrpcCourses";
+
+package GprcCoursesApi;
+
+service CoursesGrpc {
+	rpc CreateCourse(CreateCourseCommand) returns (CourseDTO) {}
+}
+
+message CreateCourseCommand {
+    int32 courseId = 1;
+    string courseName = 2;
+    repeated CourseUnit units = 3;
+}
+
+message CourseUnit {
+    int32 unitCode = 1;
+    string unitName = 2;
+}
+
+message CourseDTO {
+    int32 courseId = 1;
+    string courseName = 2;
+    repeated CourseUnitDTO units = 3;
+}
+
+message CourseUnitDTO {
+    int32 unitId = 1;
+    int32 unitCode = 2;
+    string unitName = 3;
+}

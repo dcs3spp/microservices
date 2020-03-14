@@ -1,0 +1,73 @@
+version: '3.7'
+
+# The Production docker-compose file has to have the external/real IPs or DNS names for the services
+# The COURSES_PROD_EXTERNAL_DNS_NAME_OR_IP environment variable is taken, by default, from the ".env" file defined like:
+#     COURSES_PROD_EXTERNAL_DNS_NAME_OR_IP=192.168.88.248
+# but values present in the environment vars at runtime will always override those defined inside the .env file
+# An external IP or DNS name has to be used when testing the Web apps and the Xamarin apps from remote machines/devices using the same WiFi, for instance.
+#
+# IMPORTANT: Note that this compose file uses COURSES_PROD_EXTERNAL_DNS_NAME_OR_IP instead of COURSES_EXTERNAL_DNS_NAME_OR_IP
+
+# Set ASPNETCORE_ENVIRONMENT= Development or Production, depending if you want to show up errors while testing.
+#
+# You need to start it with the following CLI command:
+# docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+
+        
+    courses-api:
+        environment:
+            - ASPNETCORE_ENVIRONMENT=Development
+            - ASPNETCORE_URLS=http://0.0.0.0:80
+            - ConnectionString=${COURSES_AZURE_COURSES_DB:-Host=coursesdb;Database=courses;Username=app;Password=Pa55w0rd;}
+            - identityUrl=http://identity-api              #Local: You need to open your local dev-machine firewall at range 5100-5110.
+            - IdentityUrlExternal=http://${COURSES_PROD_EXTERNAL_DNS_NAME_OR_IP}:5105
+            - EventBusConnection=${COURSES_AZURE_SERVICE_BUS:-rabbitmq}
+            - EventBusUserName=${COURSES_SERVICE_BUS_USERNAME}
+            - EventBusPassword=${COURSES_SERVICE_BUS_PASSWORD}
+            - UseCustomizationData=True
+            - AzureServiceBusEnabled=False
+            - CheckUpdateTime=30000
+            - ApplicationInsights__InstrumentationKey=${INSTRUMENTATION_KEY}
+            - OrchestratorType=${ORCHESTRATOR_TYPE}
+            - UseLoadTest=${USE_LOADTEST:-False}
+        ports:
+            - "80"   # The API Gateway redirects and access through the internal port (80).
+    
+    coursesdb:
+        ports:
+            - "5232:5432"    # Important: In a production environment your should remove the external port
+        restart: always
+        environment:
+            POSTGRES_USER: "app"
+            POSTGRES_PASSWORD: "Pa55w0rd"
+            POSTGRES_DB: "courses"
+            POSTGRES_HOST: "127.0.0.1"
+    
+    identity-api:
+        environment:
+            - ASPNETCORE_ENVIRONMENT=Development
+            - ASPNETCORE_URLS=http://0.0.0.0:80
+            - SpaClient=http://${COURSES_PROD_EXTERNAL_DNS_NAME_OR_IP}:5104
+            - ConnectionString=${COURSES_AZURE_IDENTITY_DB:-Server=identitydb;Database=identity;Username=app;Password=Pa55w0rd;}
+            - CoursesApiClient=http://${COURSES_PROD_EXTERNAL_DNS_NAME_OR_IP}:5102
+            - UseCustomizationData=True
+            - ApplicationInsights__InstrumentationKey=${INSTRUMENTATION_KEY}
+            - OrchestratorType=${ORCHESTRATOR_TYPE}
+        ports:
+            - "5105:80"
+
+    identitydb:
+        environment:
+            POSTGRES_USER: "app"
+            POSTGRES_PASSWORD: "Pa55w0rd"
+            POSTGRES_DB: "identity"
+            POSTGRES_HOST: "127.0.0.1" 
+        ports:
+            - "5231:5432"                                   # Important: In a production environment your should remove the external port
+
+    rabbitmq:
+        ports:
+            - "15672:15672"  # Important: In a production environment your should remove the external port
+            - "5672:5672"    # Important: In a production environment your should remove the external port
